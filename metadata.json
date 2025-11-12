@@ -1,0 +1,5 @@
+{
+  "name": "MotoGP Historical Results",
+  "description": "An application to browse historical results from MotoGP races, allowing users to filter by season, category, circuit, and session.",
+  "requestFramePermissions": []
+}
