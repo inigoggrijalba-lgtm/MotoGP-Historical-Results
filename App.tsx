@@ -2,8 +2,10 @@ import React, { useState, useEffect } from 'react';
 import type { Season, Category, Event, Session, Classification } from './types';
 import { getSeasons, getCategories, getEvents, getSessions, getClassification } from './services/motogpApi';
 import Select from './components/Select';
-import { CalendarIcon, MotorcycleIcon, FlagIcon, ClockIcon } from './components/icons';
+import { CalendarIcon, MotorcycleIcon, FlagIcon, LiveIcon } from './components/icons';
 import ResultsTable from './components/ResultsTable';
+import SessionButtons from './components/SessionButtons';
+import LiveTiming from './components/LiveTiming';
 
 const App: React.FC = () => {
   const [seasons, setSeasons] = useState<Season[]>([]);
@@ -26,6 +28,8 @@ const App: React.FC = () => {
   const [classification, setClassification] = useState<Classification[]>([]);
   const [loadingClassification, setLoadingClassification] = useState<boolean>(false);
   const [classificationError, setClassificationError] = useState<string | null>(null);
+  
+  const [view, setView] = useState<'historical' | 'live'>('historical');
 
 
   useEffect(() => {
@@ -52,6 +56,7 @@ const App: React.FC = () => {
   }, []);
 
   useEffect(() => {
+    if (view === 'live') return;
     const fetchCategoriesAndEvents = async () => {
       if (!selectedSeason) {
         setCategories([]);
@@ -87,9 +92,10 @@ const App: React.FC = () => {
     };
 
     fetchCategoriesAndEvents();
-  }, [selectedSeason]);
+  }, [selectedSeason, view]);
 
   useEffect(() => {
+    if (view === 'live') return;
     const fetchSessions = async () => {
       if (!selectedEvent || !selectedCategory) {
         setSessions([]);
@@ -111,9 +117,10 @@ const App: React.FC = () => {
     };
 
     fetchSessions();
-  }, [selectedEvent, selectedCategory]);
+  }, [selectedEvent, selectedCategory, view]);
 
   useEffect(() => {
+    if (view === 'live') return;
     const fetchClassification = async () => {
       if (!selectedSession) {
         setClassification([]);
@@ -133,7 +140,7 @@ const App: React.FC = () => {
       }
     };
     fetchClassification();
-  }, [selectedSession]);
+  }, [selectedSession, view]);
 
   const seasonOptions = seasons.map(season => ({
     value: season.id,
@@ -149,21 +156,6 @@ const App: React.FC = () => {
     value: event.id,
     label: event.sponsored_name
   }));
-  
-  const formatSessionName = (session: Session): string => {
-    if (session.type === 'RACE') {
-      return session.type;
-    }
-    if (session.number !== null) {
-      return `${session.type}${session.number}`;
-    }
-    return session.type;
-  };
-
-  const sessionOptions = sessions.map(session => ({
-    value: session.id,
-    label: formatSessionName(session)
-  }));
 
   const handleSeasonChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     setSelectedSeason(e.target.value);
@@ -171,14 +163,15 @@ const App: React.FC = () => {
 
   const handleCategoryChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     setSelectedCategory(e.target.value);
+    setSelectedSession(''); // Reset session when category changes
   };
 
   const handleEventChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     setSelectedEvent(e.target.value);
   };
   
-  const handleSessionChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setSelectedSession(e.target.value);
+  const handleSessionSelect = (sessionId: string) => {
+    setSelectedSession(sessionId);
   };
 
   const getCategoryPlaceholder = () => {
@@ -195,11 +188,9 @@ const App: React.FC = () => {
     return 'Seleccione Evento';
   };
   
-  const getSessionPlaceholder = () => {
-    if (loadingSessions) return 'Cargando Sesiones...';
-    if (!selectedEvent || !selectedCategory) return 'Seleccione Evento y Categoría';
-    if (!loadingSessions && sessions.length === 0) return 'No hay Sesiones';
-    return 'Seleccione Sesión';
+  const getSessionDisabledText = () => {
+    if (!selectedEvent || !selectedCategory) return 'Seleccione Evento y Categoría para ver las sesiones.';
+    return '';
   };
 
   const selectedSeasonYear = seasons.find(s => s.id === selectedSeason)?.year;
@@ -217,69 +208,88 @@ const App: React.FC = () => {
         </header>
 
         <main>
-          <div className="bg-gray-800/50 backdrop-blur-sm rounded-xl p-6 shadow-2xl border border-gray-700">
-            {loading && (
-              <div className="flex justify-center items-center h-24">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-500"></div>
-                <p className="ml-4 text-gray-300">Loading Seasons...</p>
-              </div>
-            )}
-            {error && !loading && (
-              <div className="text-center text-red-400 bg-red-900/50 p-4 rounded-lg">
-                <p className="font-bold">Error</p>
-                <p>{error}</p>
-              </div>
-            )}
-            {!loading && !error && (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <Select
-                  label="Temporada"
-                  value={selectedSeason}
-                  onChange={handleSeasonChange}
-                  options={seasonOptions}
-                  placeholder="Select a Season"
-                  Icon={CalendarIcon}
-                />
-                 <Select
-                  label="Categoría"
-                  value={selectedCategory}
-                  onChange={handleCategoryChange}
-                  options={categoryOptions}
-                  placeholder={getCategoryPlaceholder()}
-                  disabled={!selectedSeason || loadingCategories || categories.length === 0}
-                  Icon={MotorcycleIcon}
-                />
-                <Select
-                  label="Evento"
-                  value={selectedEvent}
-                  onChange={handleEventChange}
-                  options={eventOptions}
-                  placeholder={getEventPlaceholder()}
-                  disabled={!selectedSeason || loadingEvents || events.length === 0}
-                  Icon={FlagIcon}
-                />
-                <Select
-                  label="Sesión"
-                  value={selectedSession}
-                  onChange={handleSessionChange}
-                  options={sessionOptions}
-                  placeholder={getSessionPlaceholder()}
-                  disabled={!selectedEvent || !selectedCategory || loadingSessions || sessions.length === 0}
-                  Icon={ClockIcon}
-                />
-              </div>
-            )}
+          <div className="mb-6 flex justify-end">
+            <button
+              onClick={() => setView(v => v === 'historical' ? 'live' : 'historical')}
+              className="relative inline-flex items-center gap-x-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-red-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-600 transition-colors duration-200"
+            >
+              <LiveIcon className={`h-2 w-2 ${view === 'historical' ? 'animate-pulse' : ''}`} />
+              {view === 'historical' ? 'Live Timing' : 'Volver a Historial'}
+            </button>
           </div>
-          
-          <div className="mt-8">
-            <ResultsTable 
-              data={classification} 
-              loading={loadingClassification} 
-              error={classificationError}
-              hasSelectedSession={!!selectedSession}
-              seasonYear={selectedSeasonYear}
-            />
-          </div>
+
+          {view === 'historical' ? (
+            <>
+              <div className="bg-gray-800/50 backdrop-blur-sm rounded-xl p-6 shadow-2xl border border-gray-700">
+                {loading && (
+                  <div className="flex justify-center items-center h-24">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-500"></div>
+                    <p className="ml-4 text-gray-300">Loading Seasons...</p>
+                  </div>
+                )}
+                {error && !loading && (
+                  <div className="text-center text-red-400 bg-red-900/50 p-4 rounded-lg">
+                    <p className="font-bold">Error</p>
+                    <p>{error}</p>
+                  </div>
+                )}
+                {!loading && !error && (
+                  <>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                      <Select
+                        label="Temporada"
+                        value={selectedSeason}
+                        onChange={handleSeasonChange}
+                        options={seasonOptions}
+                        placeholder="Select a Season"
+                        Icon={CalendarIcon}
+                      />
+                      <Select
+                        label="Categoría"
+                        value={selectedCategory}
+                        onChange={handleCategoryChange}
+                        options={categoryOptions}
+                        placeholder={getCategoryPlaceholder()}
+                        disabled={!selectedSeason || loadingCategories || categories.length === 0}
+                        Icon={MotorcycleIcon}
+                      />
+                      <Select
+                        label="Evento"
+                        value={selectedEvent}
+                        onChange={handleEventChange}
+                        options={eventOptions}
+                        placeholder={getEventPlaceholder()}
+                        disabled={!selectedSeason || loadingEvents || events.length === 0}
+                        Icon={FlagIcon}
+                      />
+                    </div>
+                    <div className="mt-6">
+                      <SessionButtons
+                        sessions={sessions}
+                        selectedSession={selectedSession}
+                        onSelectSession={handleSessionSelect}
+                        loading={loadingSessions}
+                        disabled={!selectedEvent || !selectedCategory}
+                        disabledText={getSessionDisabledText()}
+                      />
+                    </div>
+                  </>
+                )}
+              </div>
+              
+              <div className="mt-8">
+                <ResultsTable 
+                  data={classification} 
+                  loading={loadingClassification} 
+                  error={classificationError}
+                  hasSelectedSession={!!selectedSession}
+                  seasonYear={selectedSeasonYear}
+                />
+              </div>
+            </>
+          ) : (
+            <LiveTiming />
+          )}
 
         </main>
       </div>

@@ -26,3 +26,9 @@ export const ClockIcon = (props: React.SVGProps<SVGSVGElement>) => (
     <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
   </svg>
 );
+
+export const LiveIcon = (props: React.SVGProps<SVGSVGElement>) => (
+  <svg fill="currentColor" viewBox="0 0 8 8" {...props}>
+    <circle cx="4" cy="4" r="4" />
+  </svg>
+);

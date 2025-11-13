@@ -4,16 +4,13 @@
   "private": true,
   "homepage": "https://inigoggrijalba-lgtm.github.io/MotoGP-Historical-Results",
   "scripts": {
-    "build": "node build.mjs",
-    "predeploy": "npm run build",
-    "deploy": "gh-pages -d dist"
+    "build": "node build.mjs"
   },
   "dependencies": {
     "react": "^19.2.0",
     "react-dom": "^19.2.0"
   },
   "devDependencies": {
-    "esbuild": "^0.20.2",
-    "gh-pages": "^6.1.1"
+    "esbuild": "^0.20.2"
   }
 }

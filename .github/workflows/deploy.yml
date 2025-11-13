@@ -1,0 +1,46 @@
+
+name: Deploy to GitHub Pages
+
+on:
+  # Trigger the workflow on push events to the main branch
+  push:
+    branches:
+      - main
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest # Use the latest ubuntu runner
+
+    permissions:
+      contents: read
+      pages: write      # Allow the action to deploy to GitHub Pages
+      id-token: write   # Allow the action to authenticate with OIDC
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20' # Use a recent LTS version of Node.js
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build project
+        run: npm run build
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          # Upload the build output from the 'dist' directory
+          path: './dist'
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

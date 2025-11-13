@@ -1,17 +1,25 @@
-import type { Season, Category, Event, Session, ClassificationResponse } from '../types';
+import type { Season, Category, Event, Session, ClassificationResponse, LiveTimingResponse } from '../types';
 
 const BASE_URL = 'https://api.motogp.pulselive.com/motogp/v1/results';
-const CORS_PROXY = 'https://corsproxy.io/?';
+const LIVE_TIMING_URL = 'https://api.motogp.pulselive.com/motogp/v1/timing-gateway/livetiming-lite';
+// Switched to a more reliable CORS proxy to ensure stability.
+const CORS_PROXY = 'https://api.allorigins.win/raw?url=';
+
+const fetchWithProxy = async <T>(url: string): Promise<T> => {
+    // We must encode the target URL for this proxy to work correctly.
+    const proxiedUrl = `${CORS_PROXY}${encodeURIComponent(url)}`;
+    const response = await fetch(proxiedUrl);
+    if (!response.ok) {
+        throw new Error(`Network response was not ok: ${response.statusText} for URL: ${url}`);
+    }
+    return response.json() as Promise<T>;
+};
+
 
 export const getSeasons = async (): Promise<Season[]> => {
   try {
     const url = `${BASE_URL}/seasons`;
-    const proxiedUrl = `${CORS_PROXY}${encodeURIComponent(url)}`;
-    const response = await fetch(proxiedUrl);
-    if (!response.ok) {
-      throw new Error(`Network response was not ok: ${response.statusText}`);
-    }
-    const data: Season[] = await response.json();
+    const data = await fetchWithProxy<Season[]>(url);
     // Sort seasons in descending order by year for better UX
     return data.sort((a, b) => b.year - a.year);
   } catch (error) {
@@ -25,13 +33,7 @@ export const getCategories = async (seasonId: string): Promise<Category[]> => {
   if (!seasonId) return [];
   try {
     const url = `${BASE_URL}/categories?seasonUuid=${seasonId}`;
-    const proxiedUrl = `${CORS_PROXY}${encodeURIComponent(url)}`;
-    const response = await fetch(proxiedUrl);
-    if (!response.ok) {
-      throw new Error(`Network response was not ok: ${response.statusText}`);
-    }
-    const data: Category[] = await response.json();
-    return data;
+    return await fetchWithProxy<Category[]>(url);
   } catch (error) {
     console.error(`Failed to fetch categories for season ${seasonId}:`, error);
     return [];
@@ -42,12 +44,7 @@ export const getEvents = async (seasonId: string): Promise<Event[]> => {
   if (!seasonId) return [];
   try {
     const url = `${BASE_URL}/events?seasonUuid=${seasonId}&isFinished=true`;
-    const proxiedUrl = `${CORS_PROXY}${encodeURIComponent(url)}`;
-    const response = await fetch(proxiedUrl);
-    if (!response.ok) {
-      throw new Error(`Network response was not ok: ${response.statusText}`);
-    }
-    const data: Event[] = await response.json();
+    const data = await fetchWithProxy<Event[]>(url);
     // Filter out events that are tests, as requested
     return data.filter(event => !event.test);
   } catch (error) {
@@ -56,17 +53,12 @@ export const getEvents = async (seasonId: string): Promise<Event[]> => {
   }
 };
 
+// Reverted: Fetches sessions for a specific event AND category.
 export const getSessions = async (eventId: string, categoryId: string): Promise<Session[]> => {
   if (!eventId || !categoryId) return [];
   try {
     const url = `${BASE_URL}/sessions?eventUuid=${eventId}&categoryUuid=${categoryId}`;
-    const proxiedUrl = `${CORS_PROXY}${encodeURIComponent(url)}`;
-    const response = await fetch(proxiedUrl);
-    if (!response.ok) {
-      throw new Error(`Network response was not ok: ${response.statusText}`);
-    }
-    const data: Session[] = await response.json();
-    return data;
+    return await fetchWithProxy<Session[]>(url);
   } catch (error) {
     console.error(`Failed to fetch sessions for event ${eventId} and category ${categoryId}:`, error);
     return [];
@@ -77,15 +69,27 @@ export const getClassification = async (sessionId: string): Promise<Classificati
   if (!sessionId) return { classification: [] };
   try {
     const url = `${BASE_URL}/session/${sessionId}/classification?test=false`;
-    const proxiedUrl = `${CORS_PROXY}${encodeURIComponent(url)}`;
-    const response = await fetch(proxiedUrl);
-    if (!response.ok) {
-      throw new Error(`Network response was not ok: ${response.statusText}`);
-    }
-    const data: ClassificationResponse = await response.json();
-    return data;
-  } catch (error) {
+    return await fetchWithProxy<ClassificationResponse>(url);
+  } catch (error)
+  {
     console.error(`Failed to fetch classification for session ${sessionId}:`, error);
     return { classification: [] };
+  }
+};
+
+export const getLiveTiming = async (): Promise<LiveTimingResponse | null> => {
+  try {
+    const data = await fetchWithProxy<LiveTimingResponse>(LIVE_TIMING_URL);
+    // The API might return an empty object if no session is live.
+    // We check for the 'riders' property to confirm it's a valid session.
+    if (data && data.riders) {
+      return data;
+    }
+    return null;
+  } catch (error) {
+    console.error('Failed to fetch live timing data:', error);
+    // The API often returns 404 when no session is live, so we treat it as "no session"
+    // instead of a critical error.
+    return null;
   }
 };
