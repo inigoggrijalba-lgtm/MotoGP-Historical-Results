@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { getLiveTiming } from '../services/motogpApi';
 import type { LiveTimingResponse, LiveTimingRider } from '../types';
 import { ClockIcon, LiveIcon, SpainFlagIcon } from './icons';
@@ -8,31 +8,6 @@ const LiveTiming: React.FC = () => {
     const [processedRiders, setProcessedRiders] = useState<LiveTimingRider[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-
-    // Refs for FLIP animation
-    const riderRowRefs = useRef<Map<number, HTMLTableRowElement | null>>(new Map());
-    const previousBoxesRef = useRef<Map<number, DOMRect>>(new Map());
-    const prevRidersRef = useRef<LiveTimingRider[]>([]);
-
-    // Inject CSS for position change flash animation
-    useEffect(() => {
-        const style = document.createElement('style');
-        style.textContent = `
-            @keyframes position-flash-animation {
-              0% { background-color: rgba(220, 38, 38, 0.5); }
-              70% { background-color: rgba(220, 38, 38, 0.5); }
-              100% { background-color: transparent; }
-            }
-
-            .position-change-flash {
-              animation: position-flash-animation 2s ease-out;
-            }
-        `;
-        document.head.appendChild(style);
-        return () => {
-            document.head.removeChild(style);
-        };
-    }, []);
 
     useEffect(() => {
         let isFirstLoad = true;
@@ -55,14 +30,11 @@ const LiveTiming: React.FC = () => {
                 } else {
                     setData(null);
                     setProcessedRiders([]);
-                     // Avoid showing "ended" message on initial load if no data is present yet
-                    if (!isFirstLoad) {
-                        setError('The live timing session has ended.');
-                    }
+                    setError(isFirstLoad ? 'No live timing session currently active.' : 'The live timing session has ended.');
                 }
             } catch (err) {
                 if (isFirstLoad) {
-                    setError('Failed to fetch live timing data. A session might not be active.');
+                    setError('Failed to fetch live timing data.');
                 }
                 console.error('Polling for live timing data failed.', err);
             } finally {
@@ -74,68 +46,11 @@ const LiveTiming: React.FC = () => {
         };
 
         fetchData();
-        const intervalId = setInterval(fetchData, 500);
+        const intervalId = setInterval(fetchData, 1000);
 
         return () => clearInterval(intervalId);
     }, []);
     
-    // FLIP Animation Logic
-    useLayoutEffect(() => {
-        const currentBoxes = new Map<number, DOMRect>();
-        riderRowRefs.current.forEach((node, id) => {
-            if (node) {
-                currentBoxes.set(id, node.getBoundingClientRect());
-            }
-        });
-
-        const prevRidersMap = new Map<number, LiveTimingRider>(
-            prevRidersRef.current.map(rider => [rider.rider_id, rider])
-        );
-
-        riderRowRefs.current.forEach((node, id) => {
-            if (!node) return;
-
-            // --- Vertical Movement (FLIP) ---
-            const prevBox = previousBoxesRef.current.get(id);
-            const currentBox = currentBoxes.get(id);
-
-            if (prevBox && currentBox) {
-                const deltaY = prevBox.top - currentBox.top;
-
-                if (deltaY !== 0) {
-                    requestAnimationFrame(() => {
-                        node.style.transform = `translateY(${deltaY}px)`;
-                        node.style.transition = 'transform 0s';
-
-                        requestAnimationFrame(() => {
-                            node.style.transform = '';
-                            node.style.transition = 'transform 0.5s ease-in-out';
-                        });
-                    });
-                }
-            }
-
-            // --- Red Flash on Position Change ---
-            const prevRider = prevRidersMap.get(id);
-            const currentRider = processedRiders.find(r => r.rider_id === id);
-
-            if (prevRider && currentRider && prevRider.pos !== currentRider.pos && prevRider.pos > 0 && currentRider.pos > 0) {
-                node.classList.add('position-change-flash');
-                setTimeout(() => {
-                    if (node) {
-                       node.classList.remove('position-change-flash');
-                    }
-                }, 2000); // Animation duration is 2s
-            }
-
-        });
-
-        previousBoxesRef.current = currentBoxes;
-        // Update previous riders ref for the next render cycle
-        prevRidersRef.current = processedRiders;
-
-    }, [processedRiders]);
-
     const formatTime = (secondsStr: string): string => {
         let seconds = parseInt(secondsStr, 10);
         if (isNaN(seconds) || seconds < 0) seconds = 0;
@@ -143,6 +58,21 @@ const LiveTiming: React.FC = () => {
         const secs = seconds % 60;
         return `${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
     };
+
+    const formatElapsedTime = (durationMsStr: string, remainingSecStr: string): string => {
+        const durationSec = parseInt(durationMsStr, 10) / 1000;
+        const remainingSec = parseInt(remainingSecStr, 10);
+        if (isNaN(durationSec) || isNaN(remainingSec)) return '00:00:00';
+        
+        let elapsedSec = durationSec - remainingSec;
+        if (elapsedSec < 0) elapsedSec = 0;
+
+        const hours = Math.floor(elapsedSec / 3600);
+        const minutes = Math.floor((elapsedSec % 3600) / 60);
+        const seconds = Math.floor(elapsedSec % 60);
+
+        return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+    }
 
     const renderStatusTag = (text: string, colorClass: string) => (
         <span className={`px-2 py-1 text-xs font-bold rounded ${colorClass}`}>
@@ -163,7 +93,7 @@ const LiveTiming: React.FC = () => {
         return (
             <div className="text-center text-yellow-300 bg-yellow-900/50 p-6 rounded-lg mt-8 border border-yellow-700">
                 <p className="font-bold text-lg">Live Timing Unavailable</p>
-                <p>{error || 'No live timing session currently active.'}</p>
+                <p>{error || 'No data received from the live timing service.'}</p>
             </div>
         );
     }
@@ -217,18 +147,7 @@ const LiveTiming: React.FC = () => {
                     </thead>
                     <tbody className="bg-[#212121]">
                         {processedRiders.map((rider) => (
-                            <tr 
-                                key={rider.rider_id}
-                                ref={(node) => {
-                                    const map = riderRowRefs.current;
-                                    if (node) {
-                                        map.set(rider.rider_id, node);
-                                    } else {
-                                        map.delete(rider.rider_id);
-                                    }
-                                }}
-                                className="border-b border-[#3a3a3a] hover:bg-gray-700/20"
-                            >
+                            <tr key={rider.rider_id} className="border-b border-[#3a3a3a] hover:bg-gray-700/20 transition-colors duration-150">
                                 <td className="px-3 py-2 font-bold text-white text-center">{rider.pos > 0 ? rider.pos : ''}</td>
                                 <td className="px-4 py-2 font-semibold text-white whitespace-nowrap">
                                     <div className="flex items-center">
