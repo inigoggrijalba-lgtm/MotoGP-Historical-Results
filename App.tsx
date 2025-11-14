@@ -214,8 +214,8 @@ const App: React.FC = () => {
             <>
               <div className="bg-gray-800/50 backdrop-blur-sm rounded-xl p-6 shadow-2xl border border-gray-700">
                  <div className="mb-4">
-                    <h2 className="text-xl font-bold">Historical Results</h2>
-                    <p className="text-gray-400">Explore past race results from the world's premier motorcycle racing championship.</p>
+                    <h2 className="text-xl font-bold">Resultados Históricos</h2>
+                    <p className="text-gray-400">Explora los resultados de carreras pasadas del principal campeonato de motociclismo del mundo.</p>
                 </div>
                 {loading && (
                   <div className="flex justify-center items-center h-24">
