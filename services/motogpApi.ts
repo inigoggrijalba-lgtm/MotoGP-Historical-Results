@@ -80,16 +80,16 @@ export const getClassification = async (sessionId: string): Promise<Classificati
 export const getLiveTiming = async (): Promise<LiveTimingResponse | null> => {
   try {
     const data = await fetchWithProxy<LiveTimingResponse>(LIVE_TIMING_URL);
-    // The API might return an empty object if no session is live.
-    // We check for the 'riders' property to confirm it's a valid session.
-    if (data && data.riders) {
+    // The API might return an empty object or an object without the expected structure
+    // if no session is live. We check for `head` and `rider` to confirm validity.
+    if (data && data.head && data.rider) {
       return data;
     }
     return null;
   } catch (error) {
     console.error('Failed to fetch live timing data:', error);
-    // The API often returns 404 when no session is live, so we treat it as "no session"
-    // instead of a critical error.
+    // The API often returns 404 or an empty response when no session is live, 
+    // so we treat it as "no session" instead of a critical error.
     return null;
   }
 };

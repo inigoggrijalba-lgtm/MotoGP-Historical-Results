@@ -1,54 +1,84 @@
 import React, { useState, useEffect } from 'react';
 import { getLiveTiming } from '../services/motogpApi';
-import type { LiveTimingResponse } from '../types';
+import type { LiveTimingResponse, LiveTimingRider } from '../types';
+import { ClockIcon, LiveIcon, SpainFlagIcon } from './icons';
 
 const LiveTiming: React.FC = () => {
     const [data, setData] = useState<LiveTimingResponse | null>(null);
+    const [processedRiders, setProcessedRiders] = useState<LiveTimingRider[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
+        let isFirstLoad = true;
         const fetchData = async () => {
-            // Keep loading true for the very first fetch
-            if (loading) {
-                 try {
-                    const liveData = await getLiveTiming();
-                    if (liveData) {
-                        setData(liveData);
-                        setError(null);
-                    } else {
-                        setData(null);
-                        setError('No live timing session currently active.');
-                    }
-                } catch (err) {
-                    setError('Failed to fetch live timing data.');
-                    console.error(err);
-                } finally {
-                    setLoading(false);
+            try {
+                const liveData = await getLiveTiming();
+                if (liveData) {
+                    setData(liveData);
+                    const ridersArray = Object.values(liveData.rider).sort((a, b) => {
+                        const aIsNegative = a.pos < 0;
+                        const bIsNegative = b.pos < 0;
+
+                        if (aIsNegative && !bIsNegative) return 1;
+                        if (!aIsNegative && bIsNegative) return -1;
+
+                        return a.pos - b.pos;
+                    });
+                    setProcessedRiders(ridersArray);
+                    setError(null);
+                } else {
+                    setData(null);
+                    setProcessedRiders([]);
+                    setError(isFirstLoad ? 'No live timing session currently active.' : 'The live timing session has ended.');
                 }
-            } else { // For subsequent fetches, don't show the main spinner
-                 try {
-                    const liveData = await getLiveTiming();
-                     if (liveData) {
-                        setData(liveData);
-                        setError(null);
-                    } else {
-                         // If a session was active and now it's not, show the message.
-                        setData(null);
-                        setError('The live timing session has ended.');
-                    }
-                } catch (err) {
-                    // Don't necessarily set a hard error if polling fails once
-                    console.error('Polling for live timing data failed.', err);
+            } catch (err) {
+                if (isFirstLoad) {
+                    setError('Failed to fetch live timing data.');
+                }
+                console.error('Polling for live timing data failed.', err);
+            } finally {
+                if (isFirstLoad) {
+                    setLoading(false);
+                    isFirstLoad = false;
                 }
             }
         };
 
-        fetchData(); // Initial fetch
-        const intervalId = setInterval(fetchData, 5000); // Poll every 5 seconds
+        fetchData();
+        const intervalId = setInterval(fetchData, 1000);
 
-        return () => clearInterval(intervalId); // Cleanup on unmount
+        return () => clearInterval(intervalId);
     }, []);
+    
+    const formatTime = (secondsStr: string): string => {
+        let seconds = parseInt(secondsStr, 10);
+        if (isNaN(seconds) || seconds < 0) seconds = 0;
+        const minutes = Math.floor(seconds / 60);
+        const secs = seconds % 60;
+        return `${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+    };
+
+    const formatElapsedTime = (durationMsStr: string, remainingSecStr: string): string => {
+        const durationSec = parseInt(durationMsStr, 10) / 1000;
+        const remainingSec = parseInt(remainingSecStr, 10);
+        if (isNaN(durationSec) || isNaN(remainingSec)) return '00:00:00';
+        
+        let elapsedSec = durationSec - remainingSec;
+        if (elapsedSec < 0) elapsedSec = 0;
+
+        const hours = Math.floor(elapsedSec / 3600);
+        const minutes = Math.floor((elapsedSec % 3600) / 60);
+        const seconds = Math.floor(elapsedSec % 60);
+
+        return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+    }
+
+    const renderStatusTag = (text: string, colorClass: string) => (
+        <span className={`px-2 py-1 text-xs font-bold rounded ${colorClass}`}>
+            {text}
+        </span>
+    );
 
     if (loading) {
         return (
@@ -68,67 +98,88 @@ const LiveTiming: React.FC = () => {
         );
     }
 
-    const { category, track, session_status, laps_to_go, track_condition, air_temp, track_temp, humidity, riders } = data;
-
-    const renderRiderStatus = (status: string) => {
-        const isPit = status === 'IN PIT';
-        return (
-            <span className={`px-2 py-1 text-xs font-semibold rounded-full ${isPit ? 'bg-yellow-600 text-yellow-100' : 'bg-green-600 text-green-100'}`}>
-                {status}
-            </span>
-        )
-    }
+    const { head } = data;
+    const isSessionActive = head.session_status_id === 'S';
 
     return (
-        <div className="bg-gray-800/50 backdrop-blur-sm rounded-xl shadow-2xl border border-gray-700 overflow-hidden">
-            {/* Header Info */}
-            <div className="p-4 bg-gray-700/50 border-b border-gray-600">
-                <div className="flex flex-wrap justify-between items-center gap-4">
-                    <div>
-                        <h2 className="text-xl font-bold text-white">{category.name} - {track.name}</h2>
-                        <p className="text-red-400 font-semibold">{session_status.replace('_', ' ')}</p>
+        <div className="bg-[#212121] rounded-lg shadow-2xl border border-gray-700 overflow-hidden">
+            <header className="p-4 bg-[#2c2c2c] border-b border-gray-700">
+                <div className="flex justify-between items-center">
+                    {/* Left Side */}
+                    <div className="flex items-center gap-4">
+                        <div>
+                            <h2 className="text-lg font-bold text-white">
+                                Live Timing: <span className="font-normal text-gray-300">{head.category} | {head.session_name}</span>
+                            </h2>
+                            <div className="flex items-center gap-2 text-sm text-gray-400">
+                                <LiveIcon className={`h-3 w-3 ${isSessionActive ? 'text-green-500 animate-pulse' : 'text-gray-500'}`} />
+                            </div>
+                        </div>
                     </div>
+                    {/* Right Side */}
                     <div className="text-right">
-                         {laps_to_go > 0 && <p className="text-lg font-bold">{laps_to_go} Laps to go</p>}
-                         <p className="text-sm text-gray-300 capitalize">{track_condition.toLowerCase().replace('_', ' ')}</p>
+                        <div className="flex items-center gap-2 justify-end">
+                            <SpainFlagIcon className="h-4 w-auto rounded-sm" />
+                            <h3 className="font-semibold text-white">{head.event_tv_name}</h3>
+                        </div>
+                        <div className="mt-1 bg-gray-900/80 rounded-md px-3 py-1 inline-block">
+                           <p className="text-2xl font-mono font-bold text-white">{formatTime(head.remaining)}</p>
+                        </div>
                     </div>
                 </div>
-                 <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-4 text-sm text-gray-300">
-                    <span><strong>Air:</strong> {air_temp}°C</span>
-                    <span><strong>Track:</strong> {track_temp}°C</span>
-                    <span><strong>Humidity:</strong> {humidity}%</span>
-                </div>
-            </div>
-            {/* Table */}
+            </header>
+            
             <div className="overflow-x-auto">
-                <table className="w-full text-sm text-left text-gray-300">
-                    <thead className="text-xs text-gray-400 uppercase bg-gray-700/50">
+                <table className="w-full text-sm text-left text-gray-300 font-mono">
+                    <thead className="text-xs text-gray-400 uppercase bg-[#2c2c2c]">
                         <tr>
-                            <th scope="col" className="px-4 py-3 text-center">Pos</th>
-                            <th scope="col" className="px-2 py-3 text-center">Num</th>
-                            <th scope="col" className="px-6 py-3">Rider</th>
-                            <th scope="col" className="px-6 py-3">Bike</th>
-                            <th scope="col" className="px-4 py-3">Gap</th>
-                            <th scope="col" className="px-4 py-3">Interval</th>
+                            <th scope="col" className="px-3 py-3 text-center">P</th>
+                            <th scope="col" className="px-4 py-3">Rider</th>
+                            <th scope="col" className="px-3 py-3 text-center">#</th>
+                            <th scope="col" className="px-4 py-3">Best Lap</th>
+                            <th scope="col" className="px-4 py-3 text-center">Lap</th>
                             <th scope="col" className="px-4 py-3">Last Lap</th>
-                             <th scope="col" className="px-4 py-3 text-center">Status</th>
+                            <th scope="col" className="px-4 py-3">Gap P.</th>
+                            <th scope="col" className="px-4 py-3">Gap F.</th>
+                            <th scope="col" className="px-6 py-3">Team</th>
+                            <th scope="col" className="px-6 py-3">Bike</th>
                         </tr>
                     </thead>
-                    <tbody>
-                        {riders.map((rider) => (
-                            <tr key={rider.id} className="border-b border-gray-700 hover:bg-gray-700/40 transition-colors duration-150 ease-in-out">
-                                <td className="px-4 py-4 font-medium text-white text-center">{rider.position}</td>
-                                <td className="px-2 py-4 text-center">{rider.number}</td>
-                                <td className="px-6 py-4 font-bold text-white whitespace-nowrap">{rider.full_name}</td>
-                                <td className="px-6 py-4">{rider.bike}</td>
-                                <td className="px-4 py-4">{rider.gap}</td>
-                                <td className="px-4 py-4">{rider.interval}</td>
-                                <td className="px-4 py-4">{rider.last_lap}</td>
-                                <td className="px-4 py-4 text-center">{renderRiderStatus(rider.status)}</td>
+                    <tbody className="bg-[#212121]">
+                        {processedRiders.map((rider) => (
+                            <tr key={rider.rider_id} className="border-b border-[#3a3a3a] hover:bg-gray-700/20 transition-colors duration-150">
+                                <td className="px-3 py-2 font-bold text-white text-center">{rider.pos > 0 ? rider.pos : ''}</td>
+                                <td className="px-4 py-2 font-semibold text-white whitespace-nowrap">
+                                    <div className="flex items-center">
+                                        <div className="w-1 h-5 rounded-full mr-3" style={{ backgroundColor: `#${rider.color}` }}></div>
+                                        {`${rider.rider_name} ${rider.rider_surname.toUpperCase()}`}
+                                    </div>
+                                </td>
+                                <td className="px-3 py-2 text-center">
+                                    <span className="inline-block px-2 py-1 text-xs font-bold rounded-md" style={{ backgroundColor: `#${rider.color}`, color: `#${rider.text_color}`}}>
+                                        {rider.rider_number}
+                                    </span>
+                                </td>
+                                <td className="px-4 py-2">
+                                    {rider.on_pit ? renderStatusTag('PIT', 'bg-gray-500 text-white') : rider.lap_time}
+                                </td>
+                                <td className="px-4 py-2 text-center">{`${rider.num_lap} / ${rider.last_lap}`}</td>
+                                <td className="px-4 py-2">{rider.last_lap_time}</td>
+                                <td className="px-4 py-2">
+                                    {rider.status_name !== "CL" ? renderStatusTag(rider.status_name, 'bg-yellow-600 text-white') : rider.gap_prev}
+                                </td>
+                                <td className="px-4 py-2">{rider.gap_first}</td>
+                                <td className="px-6 py-2 text-gray-400">{rider.team_name}</td>
+                                <td className="px-6 py-2 text-gray-400">{rider.bike_name}</td>
                             </tr>
                         ))}
                     </tbody>
                 </table>
+                 {processedRiders.length === 0 && !loading && (
+                    <div className="text-center p-8 text-gray-400">
+                        <p>Waiting for riders on track...</p>
+                    </div>
+                )}
             </div>
         </div>
     );

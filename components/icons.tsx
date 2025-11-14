@@ -32,3 +32,20 @@ export const LiveIcon = (props: React.SVGProps<SVGSVGElement>) => (
     <circle cx="4" cy="4" r="4" />
   </svg>
 );
+
+export const MotoTimingLogo = (props: React.SVGProps<SVGSVGElement>) => (
+    <svg viewBox="0 0 200 60" fill="none" xmlns="http://www.w3.org/2000/svg" {...props}>
+        <path d="M29.5 52.5C44.964 52.5 57.5 40.014 57.5 24.5C57.5 9 45 -3.5 29.5 -3.5C14 -3.5 1.5 9 1.5 24.5C1.5 40 14 52.5 29.5 52.5Z" stroke="currentColor" strokeWidth="3" />
+        <path d="M29.5 40.5C38.33 40.5 45.5 33.33 45.5 24.5C45.5 15.67 38.33 8.5 29.5 8.5C20.67 8.5 13.5 15.67 13.5 24.5C13.5 33.33 20.67 40.5 29.5 40.5Z" stroke="currentColor" strokeWidth="3" />
+        <path d="M29.5 18.5L34.5 24.5L29.5 30.5L24.5 24.5L29.5 18.5Z" stroke="currentColor" strokeWidth="2" />
+        <path d="M12 24.5H47" stroke="currentColor" strokeWidth="2" />
+        <path d="M29.5 8V41" stroke="currentColor" strokeWidth="2" />
+    </svg>
+);
+
+export const SpainFlagIcon = (props: React.SVGProps<SVGSVGElement>) => (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 3 2" {...props}>
+        <path d="M0 0h3v2H0z" fill="#c60b1e"/>
+        <path d="M0 .5h3v1H0z" fill="#ffc400"/>
+    </svg>
+);

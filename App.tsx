@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import type { Season, Category, Event, Session, Classification } from './types';
 import { getSeasons, getCategories, getEvents, getSessions, getClassification } from './services/motogpApi';
 import Select from './components/Select';
-import { CalendarIcon, MotorcycleIcon, FlagIcon, LiveIcon } from './components/icons';
+import { CalendarIcon, MotorcycleIcon, FlagIcon, LiveIcon, MotoTimingLogo } from './components/icons';
 import ResultsTable from './components/ResultsTable';
 import SessionButtons from './components/SessionButtons';
 import LiveTiming from './components/LiveTiming';
@@ -196,31 +196,27 @@ const App: React.FC = () => {
   const selectedSeasonYear = seasons.find(s => s.id === selectedSeason)?.year;
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white font-sans p-4 sm:p-6 lg:p-8">
+    <div className="min-h-screen text-white font-sans p-4 sm:p-6 lg:p-8">
       <div className="max-w-7xl mx-auto">
-        <header className="text-center mb-8 md:mb-12">
-          <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-red-500 to-orange-400">
-            MotoGP™ Historical Results
-          </h1>
-          <p className="mt-2 text-lg text-gray-400">
-            Explore race results from the world's premier motorcycle racing championship.
-          </p>
-        </header>
-
-        <main>
-          <div className="mb-6 flex justify-end">
-            <button
+         <header className="flex justify-end items-center mb-8 md:mb-12">
+           <button
               onClick={() => setView(v => v === 'historical' ? 'live' : 'historical')}
               className="relative inline-flex items-center gap-x-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-red-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-600 transition-colors duration-200"
             >
               <LiveIcon className={`h-2 w-2 ${view === 'historical' ? 'animate-pulse' : ''}`} />
-              {view === 'historical' ? 'Live Timing' : 'Volver a Historial'}
+              {view === 'historical' ? 'Live Timing' : 'Back to History'}
             </button>
-          </div>
+        </header>
 
+
+        <main>
           {view === 'historical' ? (
             <>
               <div className="bg-gray-800/50 backdrop-blur-sm rounded-xl p-6 shadow-2xl border border-gray-700">
+                 <div className="mb-4">
+                    <h2 className="text-xl font-bold">Historical Results</h2>
+                    <p className="text-gray-400">Explore past race results from the world's premier motorcycle racing championship.</p>
+                </div>
                 {loading && (
                   <div className="flex justify-center items-center h-24">
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-500"></div>

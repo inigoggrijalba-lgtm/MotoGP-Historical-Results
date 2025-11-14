@@ -71,7 +71,7 @@ export interface Gap {
 }
 
 export interface Classification {
-  id: string;
+  id:string;
   position: number;
   rider: Rider;
   team: Team;
@@ -94,31 +94,58 @@ export interface ClassificationResponse {
 
 // --- Types for Live Timing ---
 
+export interface LiveTimingHead {
+  championship_id: string;
+  category: string;
+  circuit_id: string;
+  circuit_name: string;
+  global_event_id: string;
+  event_id: string;
+  event_tv_name: string;
+  event_shortname: string;
+  date: string;
+  datet: number;
+  datst: number;
+  num_laps: number;
+  gmt: string;
+  trsid: number;
+  session_id: string;
+  session_type: number;
+  session_name: string;
+  session_shortname: string;
+  duration: string;
+  remaining: string;
+  session_status_id: string;
+  session_status_name: string;
+  date_formated: string;
+  url: string | null;
+}
+
 export interface LiveTimingRider {
-  id: string;
-  position: number;
-  number: number;
-  full_name: string;
-  bike: string;
-  gap: string | null;
-  interval: string | null;
-  last_lap: string | null;
-  status: string;
+  order: number;
+  rider_id: number;
+  status_name: string;
+  status_id: string;
+  rider_number: string;
+  color: string;
+  text_color: string;
+  pos: number;
+  rider_shortname: string;
+  rider_name: string;
+  rider_surname: string;
+  lap_time: string;
+  num_lap: number;
+  last_lap_time: string;
+  last_lap: number;
+  trac_status: string;
+  team_name: string;
+  bike_name: string;
+  gap_first: string;
+  gap_prev: string;
+  on_pit: boolean;
 }
 
 export interface LiveTimingResponse {
-  riders: LiveTimingRider[];
-  session_status: string;
-  laps_to_go: number;
-  category: {
-    id: string;
-    name: string;
-  };
-  track: {
-    name: string;
-  };
-  air_temp: string;
-  track_temp: string;
-  humidity: string;
-  track_condition: string;
+  head: LiveTimingHead;
+  rider: { [key: string]: LiveTimingRider };
 }
